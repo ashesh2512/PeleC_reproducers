@@ -1,3 +1,4 @@
+#include <stdio.h>
 
 // error checking macro
 #define cudaCheckErrors(msg)                                                   \
@@ -697,15 +698,23 @@ CKUBMS(const double T, const double y[NUM_SPECIES], double &ubms) {
 }
 
 // intermediate function to spawn CKUBMS for every thread
-__global__ GET_T_GIVEN_HY(const double *temp, const double *y) {
+__global__ void GET_T_GIVEN_HY(const double *temp, const double *massfrac) {
 
   double enthalpy = 0.0;
 
-  for (int i = 0; i < maxiter; i++) {
+  for (int i = 0; i < MAX_ITERS; i++) {
     // assume the mass fraction is same for all cells since that does not affect
     // CKUBMS
     CKUBMS(temp[threadIdx.x], massfrac, enthalpy);
   }
+}
+
+double random_number(const double lower_bound, const double upper_bound) {
+
+  const long max_rand = 1000000L;
+
+  return lower_bound +
+         (upper_bound - lower_bound) * (random() % max_rand) / max_rand;
 }
 
 // host wrapper
@@ -713,18 +722,16 @@ int main() {
 
   double *temp_h =
       new double[NUM_CELLS]; // allocate space for temperature in host memory
-  double *massfrac_h =
-      new float[NUM_SPECIES]; // allocate space for mass fraction in host memory
+  double *massfrac_h = new double[NUM_SPECIES]; // allocate space for mass
+                                                // fraction in host memory
 
   // create random arrays
-  default_random_engine re;
-  uniform_real_distribution<double> unif_temp(T_MIN, T_MAX);
+  rand();
   for (int i = 0; i < NUM_CELLS; i++) {
-    temp_h[i] = unif_temp(re);
+    temp_h[i] = random_number(T_MIN, T_MAX);
   }
-  uniform_real_distribution<double> unif_massfrac(MASSFRAC_MIN, MASSFRAC_MAX);
-  for (int i = 0; i < NUM_CELLS; i++) {
-    massfrac_h[i] = unif_massfrac(re);
+  for (int i = 0; i < NUM_SPECIES; i++) {
+    temp_h[i] = random_number(MASSFRAC_MIN, MASSFRAC_MAX);
   }
 
   double *temp_d, *massfrac_d;
