@@ -13,19 +13,25 @@
   } while (0)
 
 // Problem parameters
-const size_t NUM_SPECIES = 53;
+#ifndef NUM_SPECIES
+#define NUM_SPECIES 53
+#endif
 const double T_MIN = 297.99515;             // based on simulation log
 const double T_MAX = 1891.6578;             // based on simulation log
 const double MASSFRAC_MIN = -0.00015890965; // based on simulation log
 const double MASSFRAC_MAX = 0.73261661;     // based on simulation log
-const size_t NUM_CELLS = 3145728;
-const size_t MAX_ITERS = 5000;
+#ifndef NUM_CELLS
+#define NUM_CELLS 3145728
+#endif
+#ifndef NUM_STEPS
+#define NUM_STEPS 10
+#endif
 
 const size_t BLOCK_SIZE = 256;
 
 //
-__device__ __forceinline__ void
-CKUBMS(const double T, const double y[NUM_SPECIES], double &ubms) {
+__device__ __forceinline__ void CKUBMS(const double T, const double y[],
+                                       double &ubms) {
   double result = 0.0;
   const double T2 = T * T;
   const double T3 = T * T * T;
@@ -698,15 +704,10 @@ CKUBMS(const double T, const double y[NUM_SPECIES], double &ubms) {
 }
 
 // intermediate function to spawn CKUBMS for every thread
-__global__ void GET_T_GIVEN_HY(const double *temp, const double *massfrac) {
+__global__ void GET_T_GIVEN_HY(const double *temp, const double *massfrac,
+                               double *enthalpy) {
 
-  double enthalpy = 0.0;
-
-  for (int i = 0; i < MAX_ITERS; i++) {
-    // assume the mass fraction is same for all cells since that does not affect
-    // CKUBMS
-    CKUBMS(temp[threadIdx.x], massfrac, enthalpy);
-  }
+  CKUBMS(temp[threadIdx.x], massfrac, enthalpy[threadIdx.x]);
 }
 
 double random_number(const double lower_bound, const double upper_bound) {
@@ -720,38 +721,56 @@ double random_number(const double lower_bound, const double upper_bound) {
 // host wrapper
 int main() {
 
+  // Use the values of a, b, and c in your program
+  printf(
+      "Problem parameters: NUM_SPECIES = %d, NUM_CELLS = %d, NUM_STEPS = %d\n",
+      NUM_SPECIES, NUM_CELLS, NUM_STEPS);
+
   double *temp_h =
       new double[NUM_CELLS]; // allocate space for temperature in host memory
   double *massfrac_h = new double[NUM_SPECIES]; // allocate space for mass
+                                                // fraction in host memory
+  double *enthalpy_h = new double[NUM_CELLS];   // allocate space for enthalpy
                                                 // fraction in host memory
 
   // create random arrays
   rand();
   for (int i = 0; i < NUM_CELLS; i++) {
     temp_h[i] = random_number(T_MIN, T_MAX);
+    enthalpy_h[i] = 0.0;
   }
   for (int i = 0; i < NUM_SPECIES; i++) {
     temp_h[i] = random_number(MASSFRAC_MIN, MASSFRAC_MAX);
   }
 
-  double *temp_d, *massfrac_d;
+  double *temp_d, *massfrac_d, *enthalpy_d;
   cudaMalloc(&temp_d,
              NUM_CELLS * sizeof(double)); // allocate device space for temp
   cudaMalloc(&massfrac_d,
              NUM_SPECIES *
                  sizeof(double)); // allocate device space for massfrac
+  cudaMalloc(&enthalpy_d,
+             NUM_CELLS * sizeof(double)); // allocate device space for enthalpy
   cudaCheckErrors("cudaMalloc failure");
 
   cudaMemcpy(temp_d, temp_h, NUM_CELLS * sizeof(double),
              cudaMemcpyHostToDevice);
   cudaMemcpy(massfrac_d, massfrac_h, NUM_SPECIES * sizeof(double),
              cudaMemcpyHostToDevice);
+  cudaMemcpy(enthalpy_d, enthalpy_h, NUM_CELLS * sizeof(double),
+             cudaMemcpyHostToDevice);
   cudaCheckErrors("cudaMemcpy HostToDevice failure");
 
-  GET_T_GIVEN_HY<<<(NUM_CELLS + BLOCK_SIZE - 1) / BLOCK_SIZE, BLOCK_SIZE>>>(
-      temp_d, massfrac_d);
-  cudaDeviceSynchronize();
+  for (int i = 0; i < NUM_STEPS; i++) {
+    GET_T_GIVEN_HY<<<(NUM_CELLS + BLOCK_SIZE - 1) / BLOCK_SIZE, BLOCK_SIZE>>>(
+        temp_d, massfrac_d, enthalpy_d);
+    cudaDeviceSynchronize();
+  }
   cudaCheckErrors("CKUBMS kernel execution failure");
+
+  cudaMemcpy(enthalpy_h, enthalpy_d, NUM_CELLS * sizeof(double),
+             cudaMemcpyDeviceToHost);
+  cudaCheckErrors("cudaMemcpy DeviceToHost failure");
 
   return 0;
 }
