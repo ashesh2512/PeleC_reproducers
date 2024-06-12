@@ -210,11 +210,11 @@ int main() {
   cudaCheckErrors("fKernelSpec_CUDAOpt kernel execution failure");
 
   // copy to host
-  cudaMemcpy(output_h_reg, output_d_reg, NUM_CELLS * sizeof(double),
+  cudaMemcpy(output_h_reg, output_d_reg, num_vals * sizeof(double),
              cudaMemcpyDeviceToHost);
   cudaCheckErrors("cudaMemcpy DeviceToHost failure for output_d_reg");
 
-  cudaMemcpy(output_h_opt, output_d_opt, NUM_CELLS * sizeof(double),
+  cudaMemcpy(output_h_opt, output_d_opt, num_vals * sizeof(double),
              cudaMemcpyDeviceToHost);
   cudaCheckErrors("cudaMemcpy DeviceToHost failure for output_d_opt");
 
