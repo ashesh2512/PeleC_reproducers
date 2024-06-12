@@ -17,6 +17,7 @@
 #ifndef NUM_SPECIES
 #define NUM_SPECIES 53
 #endif
+const int CELLS_PER_BLOCK = 2;
 const double MASSFRAC_MIN = -0.00015890965; // based on simulation log
 const double MASSFRAC_MAX = 0.73261661;     // based on simulation log
 #ifndef NUM_CELLS
@@ -37,8 +38,8 @@ fKernelSpec_CUDAReg(
 {
   if (blockIdx.x < ncells) {
 
-    __shared__ double massfrac[NUM_SPECIES];
-    __shared__ double scratch[64];
+    __shared__ volatile double massfrac[NUM_SPECIES];
+    __shared__ volatile double scratch[64];
 
     scratch[threadIdx.x] = 0.0;
 
@@ -87,15 +88,15 @@ fKernelSpec_CUDAOpt(
   const double* yvec_d,
   double* ydot_d)
 {
-  const int num_cells_per_block = 1;
+  const int num_cells_per_block = CELLS_PER_BLOCK;
   const int lcl_cell_idx = threadIdx.x / 64;
   const int glb_cell_idx = blockIdx.x * num_cells_per_block + lcl_cell_idx;
   const int lcl_cell_thread_idx = threadIdx.x % 64;
 
   if (glb_cell_idx < ncells) {
 
-    __shared__ double massfrac[num_cells_per_block][NUM_SPECIES];
-    __shared__ double scratch[num_cells_per_block][64];
+    __shared__ volatile double massfrac[num_cells_per_block][NUM_SPECIES];
+    __shared__ volatile double scratch[num_cells_per_block][64];
 
     scratch[lcl_cell_idx][lcl_cell_thread_idx] = 0.0;
 
@@ -198,7 +199,7 @@ int main() {
   cudaCheckErrors("fKernelSpec_CUDAReg kernel execution failure");
 
   {
-    const int num_cells_per_block = 1;
+    const int num_cells_per_block = CELLS_PER_BLOCK;
     const int nthreads_per_block = 64*num_cells_per_block; // multiple of warpSize rounded up,
                                         // based on number of species
     dim3 block(nthreads_per_block);
