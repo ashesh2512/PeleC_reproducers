@@ -1,0 +1,19 @@
+HIPCC_FLAGS = -Rpass-analysis=kernel-resource-usage -save-temps -O2 -g -DNDEBUG -std=c++17 -Wall -Wextra -pedantic -Wno-unused-function -faligned-new -Wunreachable-code -Wnull-dereference -Wfloat-conversion -Wshadow -Woverloaded-virtual -Wno-pass-failed -Wno-c++17-extensions -ffp-exception-behavior=maytrap -x hip --offload-arch=gfx90a -mllvm -amdgpu-early-inline-all=true -mllvm -amdgpu-function-calls=false -m64 -munsafe-fp-atomics -std=c++17 -pthread -MD
+
+SRC = ReactorCvode.cpp
+OBJ = $(SRC:.cpp=.o)
+TARGET = cF_RHS_HIP
+
+# Build target
+all: $(TARGET)
+
+# Compile source files
+%.o: %.cpp
+	hipcc $(HIPCC_FLAGS) -c $< -o $@
+
+$(TARGET): $(OBJ)
+	hipcc -o $@ $^
+
+# Clean target
+clean:
+	rm -f $(OBJ) $(TARGET)
