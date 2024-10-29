@@ -1,0 +1,11 @@
+Modules:
+module load PrgEnv-amd amd/6.2.1
+module load craype-x86-trento
+export ROCM_PATH=/opt/rocm-6.2.1
+export HIP_PLATFORM=amd
+
+Build:
+make
+
+Run command:
+srun -N1 -n1 -c1 --threads-per-core=1 ./cF_RHS_HIP 131072 1.0
