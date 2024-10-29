@@ -3,11 +3,7 @@
 
 #include "hip/hip_runtime.h"
 
-// #include "Fuego.H"
-
-#ifndef NUM_SPECIES
-#define NUM_SPECIES 53
-#endif
+#include "Fuego.H"
 
 struct YCOrder
 {
@@ -61,48 +57,50 @@ cF_RHS_HIP(
   const double* rhoesrc_ext,
   const double* rYs)
 {
-  // const int tidx = blockDim.x * blockIdx.x + threadIdx.x; // thread index
-  // if (tidx >= ncells)
-  //   return;
+  const int tidx = blockDim.x * blockIdx.x + threadIdx.x; // thread index
+  if (tidx >= ncells)
+    return;
 
-  for (long tidx = long(blockDim.x)*blockIdx.x+threadIdx.x, stride = long(blockDim.x)*gridDim.x; tidx < long(ncells); tidx += stride)
+  // for (long tidx = long(blockDim.x)*blockIdx.x+threadIdx.x, stride = long(blockDim.x)*gridDim.x; tidx < long(ncells); tidx += stride)
   {
     double rho_pt = 0.0;
-    // amrex::GpuArray<double, NUM_SPECIES> massfrac = {0.0};
-    // for (int n = 0; n < NUM_SPECIES; n++) {
-    //   massfrac[n] = yvec_d[vec_index<OrderType>(n, tidx, ncells)];
-    //   rho_pt += massfrac[n];
-    // }
-    // const double rho_pt_inv = 1.0 / rho_pt;
+    double massfrac[NUM_SPECIES] = {0.0};
+    for (int n = 0; n < NUM_SPECIES; n++) {
+      massfrac[n] = yvec_d[vec_index<OrderType>(n, tidx, ncells)];
+      rho_pt += massfrac[n];
+    }
+    const double rho_pt_inv = 1.0 / rho_pt;
 
-    // for (int n = 0; n < NUM_SPECIES; n++) {
-    //   massfrac[n] *= rho_pt_inv;
-    // }
+    for (int n = 0; n < NUM_SPECIES; n++) {
+      massfrac[n] *= rho_pt_inv;
+    }
 
-    // const double nrg_pt =
-    //   (rhoe_init[tidx] + rhoesrc_ext[tidx] * dt_save) * rho_pt_inv;
+    const double nrg_pt =
+      (rhoe_init[tidx] + rhoesrc_ext[tidx] * dt_save) * rho_pt_inv;
 
-    // double temp_pt = yvec_d[vec_index<OrderType>(NUM_SPECIES, tidx, ncells)];
+    double temp_pt = yvec_d[vec_index<OrderType>(NUM_SPECIES, tidx, ncells)];
 
-    // double Cv_pt = 0.0;
-    // amrex::GpuArray<double, NUM_SPECIES> ei_pt = {0.0};
+    double Cv_pt = 0.0;
+    double ei_pt[NUM_SPECIES] = {0.0};
 
-    // REY2T(rho_pt, nrg_pt, massfrac.arr, temp_pt);
-    // RTY2Ei(rho_pt, temp_pt, massfrac.arr, ei_pt.arr);
-    // eos.RTY2Cv(rho_pt, temp_pt, massfrac.arr, Cv_pt);
+    struct Fuego eos;
+    eos.REY2T(rho_pt, nrg_pt, massfrac, temp_pt);
+    eos.RTY2Ei(rho_pt, temp_pt, massfrac, ei_pt);
+    eos.RTY2Cv(rho_pt, temp_pt, massfrac, Cv_pt);
 
-    // amrex::GpuArray<double, NUM_SPECIES> cdots_pt = {0.0};
-    // eos.RTY2WDOT(rho_pt, temp_pt, massfrac.arr, cdots_pt.arr);
+    double cdots_pt[NUM_SPECIES] = {0.0};
+    eos.RTY2WDOT(rho_pt, temp_pt, massfrac, cdots_pt);
 
-    // double rhoesrc = rhoesrc_ext[tidx];
-    // for (int n = 0; n < NUM_SPECIES; n++) {
-    //   const double cdot_rYs =
-    //     cdots_pt[n] + rYs[spec_index<OrderType>(n, tidx, ncells)];
-    //   ydot_d[vec_index<OrderType>(n, tidx, ncells)] = cdot_rYs;
-    //   rhoesrc -= cdot_rYs * ei_pt[n];
-    // }
-    // ydot_d[vec_index<OrderType>(NUM_SPECIES, tidx, ncells)] =
-    //   rhoesrc * (rho_pt_inv / Cv_pt);
+    double rhoesrc = rhoesrc_ext[tidx];
+    for (int n = 0; n < NUM_SPECIES; n++) {
+      const double cdot_rYs =
+        cdots_pt[n] + rYs[spec_index<OrderType>(n, tidx, ncells)];
+      ydot_d[vec_index<OrderType>(n, tidx, ncells)] = cdot_rYs;
+      rhoesrc -= cdot_rYs * ei_pt[n];
+    }
+    printf("%d\n", vec_index<OrderType>(NUM_SPECIES, tidx, ncells));
+    ydot_d[vec_index<OrderType>(NUM_SPECIES, tidx, ncells)] =
+      rhoesrc * (rho_pt_inv / Cv_pt);
   }
 }
 

@@ -1,6 +1,8 @@
 #include <iostream>
 #include <stdio.h>
 
+#include "hip/hip_runtime.h"
+
 #include "ReactorUtils.H"
 
 #define HIP_ASSERT(x) (assert((x)==hipSuccess))
@@ -52,14 +54,14 @@ int cF_RHS(const int ncells, const double dt_save)
   }
 
   // initialize device pointers and copy over to them
-  double *yvec_d, *ydot_d, *rhoe_init_d, *rhoesrc_ext_d, *rYsrc_ext_d;
+  double *yvec_d = nullptr, *ydot_d = nullptr, *rhoe_init_d = nullptr, *rhoesrc_ext_d = nullptr, *rYsrc_ext_d = nullptr;
 
   // initialize arrays
-  HIP_ASSERT(hipMalloc((void**)&yvec_d, ncells * (NUM_SPECIES+1) * sizeof(double)));
-  HIP_ASSERT(hipMalloc((void**)&ydot_d, ncells * (NUM_SPECIES+1) * sizeof(double)));
-  HIP_ASSERT(hipMalloc((void**)&rhoe_init_d, ncells * sizeof(double)));
-  HIP_ASSERT(hipMalloc((void**)&rhoesrc_ext_d, ncells * sizeof(double)));
-  HIP_ASSERT(hipMalloc((void**)&rYsrc_ext_d, ncells * NUM_SPECIES * sizeof(double)));
+  HIP_ASSERT(hipMalloc(&yvec_d, ncells * (NUM_SPECIES+1) * sizeof(double)));
+  HIP_ASSERT(hipMalloc(&ydot_d, ncells * (NUM_SPECIES+1) * sizeof(double)));
+  HIP_ASSERT(hipMalloc(&rhoe_init_d, ncells * sizeof(double)));
+  HIP_ASSERT(hipMalloc(&rhoesrc_ext_d, ncells * sizeof(double)));
+  HIP_ASSERT(hipMalloc(&rYsrc_ext_d, ncells * NUM_SPECIES * sizeof(double)));
 
   // copy to device memory
   HIP_ASSERT(hipMemcpy(yvec_d, yvec_h, ncells * (NUM_SPECIES+1) * sizeof(double), hipMemcpyHostToDevice));
@@ -67,6 +69,9 @@ int cF_RHS(const int ncells, const double dt_save)
   HIP_ASSERT(hipMemcpy(rhoe_init_d, rhoe_init_h, ncells * sizeof(double), hipMemcpyHostToDevice));
   HIP_ASSERT(hipMemcpy(rhoesrc_ext_d, rhoesrc_ext_h, ncells * sizeof(double), hipMemcpyHostToDevice));
   HIP_ASSERT(hipMemcpy(rYsrc_ext_d, rYsrc_ext_h, ncells * NUM_SPECIES * sizeof(double), hipMemcpyHostToDevice));
+
+  printf("\nKernel about to be launched, data copied over to device.\n");
+  fflush(stdout);
              
   // kernel call           
   const int block_size = 256;
@@ -74,16 +79,28 @@ int cF_RHS(const int ncells, const double dt_save)
       <<<(ncells + block_size - 1) / block_size, block_size>>>(
           ncells, dt_save, yvec_d, ydot_d, rhoe_init_d, rhoesrc_ext_d, rYsrc_ext_d);
 
-  hipDeviceSynchronize();
+  hipError_t err = hipDeviceSynchronize();
+  if (err != hipSuccess) {
+      fprintf(stderr, "hipDeviceSynchronize failed: %s\n", hipGetErrorString(err));
+  }
 
   // copy to host memory
   HIP_ASSERT(hipMemcpy(ydot_h, ydot_d, ncells * (NUM_SPECIES+1) * sizeof(double), hipMemcpyDeviceToHost));
+
+  printf("\nKernel launched, completed, and data copied over fromt device. End of program.\n");
+  fflush(stdout);
 
   HIP_ASSERT(hipFree(yvec_d));
   HIP_ASSERT(hipFree(ydot_d));
   HIP_ASSERT(hipFree(rhoe_init_d));
   HIP_ASSERT(hipFree(rhoesrc_ext_d));
   HIP_ASSERT(hipFree(rYsrc_ext_d));
+
+  delete[] yvec_h;
+  delete[] ydot_h;
+  delete[] rhoe_init_h;
+  delete[] rhoesrc_ext_h;
+  delete[] rYsrc_ext_h;
 
   return 0;
 }
@@ -98,6 +115,8 @@ int main(int argc, char* argv[]) {
   // Accessing the arguments
   int ncells = std::stoi(argv[1]);
   double time = std::stod(argv[2]);
+
+  cF_RHS(ncells, time);
 
   return 0;
 }
