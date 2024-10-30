@@ -57,11 +57,13 @@ cF_RHS_HIP(
   const double* rhoesrc_ext,
   const double* rYs)
 {
-  // const int tidx = blockDim.x * blockIdx.x + threadIdx.x; // thread index
-  // if (tidx >= ncells)
-  //   return;
-
+#if USE_GRID_STRIDE
   for (long tidx = long(blockDim.x)*blockIdx.x+threadIdx.x, stride = long(blockDim.x)*gridDim.x; tidx < long(ncells); tidx += stride)
+#else
+  const int tidx = blockDim.x * blockIdx.x + threadIdx.x;
+  if (tidx >= ncells)
+    return;
+#endif
   {
     double rho_pt = 0.0;
     double massfrac[NUM_SPECIES] = {0.0};
