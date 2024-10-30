@@ -84,8 +84,8 @@
 #define NUM_FIT 4
 
 //  inverse molecular weights
-#ifdef AMREX_USE_GPU
-AMREX_GPU_CONSTANT const double global_imw[53] = {
+#ifdef USE_GPU
+__constant__ const double global_imw[53] = {
   0.0058706117177410, // NC12H26
   0.9920634920634921, // H
   0.0625039064941559, // O
@@ -198,8 +198,8 @@ const double h_global_imw[53] = {
 };
 
 //  molecular weights
-#ifdef AMREX_USE_GPU
-AMREX_GPU_CONSTANT const double global_mw[53] = {
+#ifdef USE_GPU
+__constant__ const double global_mw[53] = {
   170.340000, // NC12H26
   1.008000,   // H
   15.999000,  // O
@@ -315,7 +315,7 @@ const double h_global_mw[53] = {
 __host__ __device__ __forceinline__ double
 imw(const int n)
 {
-#if AMREX_DEVICE_COMPILE
+#if USE_GPU
   return global_imw[n];
 #else
   return h_global_imw[n];
@@ -326,7 +326,7 @@ imw(const int n)
 __host__ __device__ __forceinline__ double
 mw(const int n)
 {
-#if AMREX_DEVICE_COMPILE
+#if USE_GPU
   return global_mw[n];
 #else
   return h_global_mw[n];
