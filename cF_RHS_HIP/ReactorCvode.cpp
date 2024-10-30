@@ -1,3 +1,4 @@
+#include <assert.h>
 #include <iostream>
 #include <stdio.h>
 
@@ -5,7 +6,11 @@
 
 #include "ReactorUtils.H"
 
+#ifdef NDEBUG
+#define HIP_ASSERT(x) x
+#else
 #define HIP_ASSERT(x) (assert((x)==hipSuccess))
+#endif
 
 // PeleC compile time paramters
 using Ordering = CYOrder;
@@ -19,7 +24,6 @@ const double MASSFRAC_MAX = 0.73261661;     // based on simulation log
 
 const double T_MIN = 297.99515;             // based on simulation log
 const double T_MAX = 1891.6578;             // based on simulation log
-
 
 double random_number(const double lower_bound, const double upper_bound) {
   const long max_rand = 1000000L;

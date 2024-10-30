@@ -19,4 +19,4 @@ $(TARGET): $(OBJ)
 
 # Clean target
 clean:
-	rm -f $(OBJ) $(TARGET)
+	rm -f $(OBJ) $(TARGET) $(DEP)

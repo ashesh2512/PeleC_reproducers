@@ -52,7 +52,7 @@ cF_RHS_HIP(
   const int ncells,
   const double dt_save,
   const double* yvec_d,
-  double* ydot_d, // NOLINT(readability-non-const-parameter)
+  double* ydot_d,
   const double* rhoe_init,
   const double* rhoesrc_ext,
   const double* rYs)
@@ -98,7 +98,6 @@ cF_RHS_HIP(
       ydot_d[vec_index<OrderType>(n, tidx, ncells)] = cdot_rYs;
       rhoesrc -= cdot_rYs * ei_pt[n];
     }
-    printf("%d\n", vec_index<OrderType>(NUM_SPECIES, tidx, ncells));
     ydot_d[vec_index<OrderType>(NUM_SPECIES, tidx, ncells)] =
       rhoesrc * (rho_pt_inv / Cv_pt);
   }
