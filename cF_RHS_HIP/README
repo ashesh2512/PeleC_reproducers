@@ -8,4 +8,4 @@ Build:
 make
 
 Run command:
-srun -N1 -n1 -c1 --threads-per-core=1 ./cF_RHS_HIP 131072 1.0
+srun -N1 -n1 -c1 --threads-per-core=1 ./cF_RHS_HIP <cells, default = 131072> <time step, default = 1.0> <kernel launches, default = 10000>

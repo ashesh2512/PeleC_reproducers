@@ -31,7 +31,7 @@ double random_number(const double lower_bound, const double upper_bound) {
          (upper_bound - lower_bound) * (random() % max_rand) / max_rand;
 }
 
-int cF_RHS(const int ncells, const double dt_save)
+int cF_RHS(const int ncells, const double dt_save, const int num_iters)
 {
   // create and populate arrays
   double* yvec_h = new double[ncells * (NUM_SPECIES+1)];
@@ -77,11 +77,14 @@ int cF_RHS(const int ncells, const double dt_save)
   printf("\nKernel about to be launched, data copied over to device.\n");
   fflush(stdout);
              
-  // kernel call           
-  const int block_size = 256;
-  cF_RHS_HIP<Ordering>
-      <<<(ncells + block_size - 1) / block_size, block_size>>>(
-          ncells, dt_save, yvec_d, ydot_d, rhoe_init_d, rhoesrc_ext_d, rYsrc_ext_d);
+  for (int iter = 0; iter < num_iters; iter ++)
+  {
+    // kernel call           
+    const int block_size = 256;
+    cF_RHS_HIP<Ordering>
+        <<<(ncells + block_size - 1) / block_size, block_size>>>(
+            ncells, dt_save, yvec_d, ydot_d, rhoe_init_d, rhoesrc_ext_d, rYsrc_ext_d);
+  }
 
   hipError_t err = hipDeviceSynchronize();
   if (err != hipSuccess) {
@@ -110,17 +113,34 @@ int cF_RHS(const int ncells, const double dt_save)
 }
 
 int main(int argc, char* argv[]) {
-  // Check if exactly 3 arguments (excluding the program name) are passed
-  if (argc != 3) {
-      std::cerr << "Usage: " << argv[0] << " <arg1> <arg2> <arg3>" << std::endl;
-      return 1;
+
+  // Set default values
+  std::string arg1 = "131072";
+  std::string arg2 = "1.0";
+  std::string arg3 = "10000";
+
+  // Check if arguments were provided
+  if (argc > 1) {
+    arg1 = argv[1];
   }
+  printf("Num cells = %s\n", arg1.c_str());
+
+  if (argc > 2) {
+    arg2 = argv[2];
+  }
+  printf("Time step = %s\n", arg2.c_str());
+
+  if (argc > 3) {
+    arg3 = argv[3];
+  }
+  printf("Number of iterations = %s\n", arg3.c_str());
 
   // Accessing the arguments
-  int ncells = std::stoi(argv[1]);
-  double time = std::stod(argv[2]);
+  int ncells = std::stoi(arg1);
+  double time = std::stod(arg2);
+  int num_iters = std::stoi(arg3);
 
-  cF_RHS(ncells, time);
+  cF_RHS(ncells, time, num_iters);
 
   return 0;
 }
