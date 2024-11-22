@@ -5,4 +5,6 @@ export ROCM_PATH=/opt/rocm-6.2.1
 export HIP_PLATFORM=amd
 
 Build:
-make
+make "PELEC_FLAGS = -DUSE_VOLATILE"
+or
+make "PELEC_FLAGS = -UUSE_VOLATILE"
