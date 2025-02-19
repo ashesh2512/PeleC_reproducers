@@ -80,7 +80,7 @@ int cF_RHS(const int ncells, const double dt_save, const int num_iters)
   for (int iter = 0; iter < num_iters; iter ++)
   {
     // kernel call           
-    const int block_size = 256;
+    const int block_size = 64;
     cF_RHS_HIP<Ordering>
         <<<(ncells + block_size - 1) / block_size, block_size>>>(
             ncells, dt_save, yvec_d, ydot_d, rhoe_init_d, rhoesrc_ext_d, rYsrc_ext_d);

@@ -53,26 +53,9 @@ struct Fuego
 
   __host__ __device__
   __forceinline__
-  static void RTY2WDOT(
-    const double R,
-    const double T,
-    const double Y[NUM_SPECIES],
-    double WDOT[NUM_SPECIES])
+  static void T2Ei(const double T, double Ei[NUM_SPECIES], const int tidx)
   {
-    double C[NUM_SPECIES];
-    CKYTCR(R, T, Y, C);
-    CKWC(T, C, WDOT);
-
-    for (int n = 0; n < NUM_SPECIES; n++) {
-      WDOT[n] *= mw(n);
-    }
-  }
-
-  __host__ __device__
-  __forceinline__
-  static void T2Ei(const double T, double Ei[NUM_SPECIES])
-  {
-    CKUMS(T, Ei);
+    CKUMS(T, Ei, tidx);
   }
 
   __host__ __device__
@@ -81,9 +64,10 @@ struct Fuego
     const double /*R*/,
     const double T,
     const double* /*Y[]*/,
-    double Ei[NUM_SPECIES])
+    double Ei[NUM_SPECIES],
+    const int tidx)
   {
-    T2Ei(T, Ei);
+    T2Ei(T, Ei, tidx);
   }
 };
 

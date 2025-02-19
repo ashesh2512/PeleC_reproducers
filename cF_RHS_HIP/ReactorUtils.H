@@ -47,7 +47,7 @@ spec_index<CYOrder>(const int specie_idx, const int icell, const int ncells)
 
 template <typename OrderType>
 __global__ void 
-__launch_bounds__(256)
+__launch_bounds__(64)
 cF_RHS_HIP(
   const int ncells,
   const double dt_save,
@@ -57,51 +57,76 @@ cF_RHS_HIP(
   const double* rhoesrc_ext,
   const double* rYs)
 {
-#if USE_GRID_STRIDE
-  for (long tidx = long(blockDim.x)*blockIdx.x+threadIdx.x, stride = long(blockDim.x)*gridDim.x; tidx < long(ncells); tidx += stride)
-#else
-  const int tidx = blockDim.x * blockIdx.x + threadIdx.x;
-  if (tidx >= ncells)
-    return;
-#endif
-  {
-    double rho_pt = 0.0;
-    double massfrac[NUM_SPECIES] = {0.0};
-    for (int n = 0; n < NUM_SPECIES; n++) {
-      massfrac[n] = yvec_d[vec_index<OrderType>(n, tidx, ncells)];
-      rho_pt += massfrac[n];
-    }
-    const double rho_pt_inv = 1.0 / rho_pt;
+  const int num_cells_per_block = 1;
+  const int lcl_cell_idx = 0; // threadIdx.x / 64;
+  const int glb_cell_idx = blockIdx.x * num_cells_per_block + lcl_cell_idx;
+  const int species_idx = threadIdx.x % 64;
 
-    for (int n = 0; n < NUM_SPECIES; n++) {
-      massfrac[n] *= rho_pt_inv;
+  if (glb_cell_idx < ncells) {
+
+    __shared__ double massfrac[num_cells_per_block * 64];
+    __shared__ double ei_pt[num_cells_per_block * 64];
+    __shared__ double cdots_pt[num_cells_per_block * 64];
+    __shared__ double scratch[num_cells_per_block * 64];
+
+    scratch[threadIdx.x] = 0.0;
+
+    if (species_idx < NUM_SPECIES) {
+      massfrac[threadIdx.x] =
+        yvec_d[vec_index<OrderType>(species_idx, glb_cell_idx, ncells)]; // requires species index as first argument
+      scratch[threadIdx.x] = massfrac[threadIdx.x];
+    }
+
+    for (int stride = 32; stride > 0; stride /= 2) {
+      if (species_idx < stride) {
+          scratch[threadIdx.x] += scratch[threadIdx.x + stride];
+      }
+    }
+
+    // this "should" be a broadcast
+    double rho_pt = scratch[lcl_cell_idx * 64]; // assign first value of every cell
+    double rho_pt_inv = 1.0 / rho_pt;
+    
+    if (species_idx < NUM_SPECIES) {
+      massfrac[threadIdx.x] *= rho_pt_inv;
     }
 
     const double nrg_pt =
-      (rhoe_init[tidx] + rhoesrc_ext[tidx] * dt_save) * rho_pt_inv;
+      (rhoe_init[glb_cell_idx] + rhoesrc_ext[glb_cell_idx] * dt_save) * rho_pt_inv;
 
-    double temp_pt = yvec_d[vec_index<OrderType>(NUM_SPECIES, tidx, ncells)];
+    double temp_pt =
+      yvec_d[vec_index<OrderType>(NUM_SPECIES, glb_cell_idx, ncells)];
 
     double Cv_pt = 0.0;
-    double ei_pt[NUM_SPECIES] = {0.0};
-
     struct Fuego eos;
-    eos.REY2T(rho_pt, nrg_pt, massfrac, temp_pt);
-    eos.RTY2Ei(rho_pt, temp_pt, massfrac, ei_pt);
-    eos.RTY2Cv(rho_pt, temp_pt, massfrac, Cv_pt);
-
-    double cdots_pt[NUM_SPECIES] = {0.0};
-    eos.RTY2WDOT(rho_pt, temp_pt, massfrac, cdots_pt);
-
-    double rhoesrc = rhoesrc_ext[tidx];
-    for (int n = 0; n < NUM_SPECIES; n++) {
-      const double cdot_rYs =
-        cdots_pt[n] + rYs[spec_index<OrderType>(n, tidx, ncells)];
-      ydot_d[vec_index<OrderType>(n, tidx, ncells)] = cdot_rYs;
-      rhoesrc -= cdot_rYs * ei_pt[n];
+    if (species_idx == 0) {
+      eos.REY2T(rho_pt, nrg_pt, &massfrac[lcl_cell_idx * 64], temp_pt);
+      eos.RTY2Cv(rho_pt, temp_pt, &massfrac[lcl_cell_idx * 64], Cv_pt);
     }
-    ydot_d[vec_index<OrderType>(NUM_SPECIES, tidx, ncells)] =
-      rhoesrc * (rho_pt_inv / Cv_pt);
+    
+    eos.RTY2Ei(rho_pt, temp_pt, &massfrac[lcl_cell_idx * 64], &ei_pt[lcl_cell_idx * 64], species_idx);
+
+    if (species_idx < NUM_SPECIES) {
+      scratch[threadIdx.x] =
+        cdots_pt[threadIdx.x] +
+        rYs[spec_index<OrderType>(species_idx, glb_cell_idx, ncells)];
+
+      ydot_d[vec_index<OrderType>(species_idx, glb_cell_idx, ncells)] =
+        scratch[threadIdx.x];
+
+      scratch[threadIdx.x] *= ei_pt[threadIdx.x];
+    }
+
+    for (int stride = 32; stride > 0; stride /= 2) {
+      if (species_idx < stride) {
+          scratch[threadIdx.x] += scratch[threadIdx.x + stride];
+      }
+    }
+
+    if (species_idx == 0) {
+      ydot_d[vec_index<OrderType>(NUM_SPECIES, glb_cell_idx, ncells)] =
+        (rhoesrc_ext[glb_cell_idx] - scratch[lcl_cell_idx * 64]) * (rho_pt_inv / Cv_pt);
+    }
   }
 }
 
