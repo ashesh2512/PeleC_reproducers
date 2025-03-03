@@ -22,3 +22,8 @@ $(TARGET): $(OBJ)
 # Clean target
 clean:
 	rm -f $(OBJ) $(TARGET) $(DEP)
+
+	# Remove all object, binary, and intermediate files
+	$(RM) ReactorCvode-hip-*
+	$(RM) ReactorCvode-host-*
+	$(RM) ReactorCvode.cpp-*

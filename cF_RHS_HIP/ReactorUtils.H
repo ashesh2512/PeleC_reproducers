@@ -58,37 +58,37 @@ cF_RHS_HIP(
   const double* rYs)
 {
   const int num_cells_per_block = 1;
-  const int lcl_cell_idx = 0; // threadIdx.x / 64;
+  const int lcl_cell_idx = threadIdx.x / 64;
   const int glb_cell_idx = blockIdx.x * num_cells_per_block + lcl_cell_idx;
-  const int species_idx = threadIdx.x % 64;
+  const int lcl_cell_thread_idx = threadIdx.x % 64;
 
   if (glb_cell_idx < ncells) {
 
-    __shared__ double massfrac[num_cells_per_block * 64];
-    __shared__ double ei_pt[num_cells_per_block * 64];
-    __shared__ double cdots_pt[num_cells_per_block * 64];
-    __shared__ double scratch[num_cells_per_block * 64];
+    __shared__ double massfrac[num_cells_per_block][NUM_SPECIES];
+    __shared__ double ei_pt[num_cells_per_block][NUM_SPECIES];
+    __shared__ double cdots_pt[num_cells_per_block][NUM_SPECIES];
+    __shared__ double scratch[num_cells_per_block][64];
 
-    scratch[threadIdx.x] = 0.0;
+    scratch[lcl_cell_idx][lcl_cell_thread_idx] = 0.0;
 
-    if (species_idx < NUM_SPECIES) {
-      massfrac[threadIdx.x] =
-        yvec_d[vec_index<OrderType>(species_idx, glb_cell_idx, ncells)]; // requires species index as first argument
-      scratch[threadIdx.x] = massfrac[threadIdx.x];
+    if (lcl_cell_thread_idx < NUM_SPECIES) {
+      massfrac[lcl_cell_idx][lcl_cell_thread_idx] =
+        yvec_d[vec_index<OrderType>(lcl_cell_thread_idx, glb_cell_idx, ncells)];
+      scratch[lcl_cell_idx][lcl_cell_thread_idx] = massfrac[lcl_cell_idx][lcl_cell_thread_idx];
     }
 
     for (int stride = 32; stride > 0; stride /= 2) {
-      if (species_idx < stride) {
-          scratch[threadIdx.x] += scratch[threadIdx.x + stride];
+      if (lcl_cell_thread_idx < stride) {
+          scratch[lcl_cell_idx][lcl_cell_thread_idx] += scratch[lcl_cell_idx][lcl_cell_thread_idx + stride];
       }
     }
 
     // this "should" be a broadcast
-    double rho_pt = scratch[lcl_cell_idx * 64]; // assign first value of every cell
+    double rho_pt = scratch[lcl_cell_idx][0];
     double rho_pt_inv = 1.0 / rho_pt;
     
-    if (species_idx < NUM_SPECIES) {
-      massfrac[threadIdx.x] *= rho_pt_inv;
+    if (lcl_cell_thread_idx < NUM_SPECIES) {
+      massfrac[lcl_cell_idx][lcl_cell_thread_idx] *= rho_pt_inv;
     }
 
     const double nrg_pt =
@@ -98,36 +98,40 @@ cF_RHS_HIP(
       yvec_d[vec_index<OrderType>(NUM_SPECIES, glb_cell_idx, ncells)];
 
     double Cv_pt = 0.0;
+
     struct Fuego eos;
-    if (species_idx == 0) {
-      eos.REY2T(rho_pt, nrg_pt, &massfrac[lcl_cell_idx * 64], temp_pt);
-      eos.RTY2Cv(rho_pt, temp_pt, &massfrac[lcl_cell_idx * 64], Cv_pt);
+    if (lcl_cell_thread_idx == 0) {
+    eos.REY2T(
+      rho_pt, nrg_pt, massfrac[lcl_cell_idx], temp_pt);
+    eos.RTY2Cv(
+      rho_pt, temp_pt, massfrac[lcl_cell_idx], Cv_pt);
     }
-    
-    eos.RTY2Ei(rho_pt, temp_pt, &massfrac[lcl_cell_idx * 64], &ei_pt[lcl_cell_idx * 64], species_idx);
+    eos.RTY2Ei(
+      rho_pt, temp_pt, massfrac[lcl_cell_idx], ei_pt[lcl_cell_idx], lcl_cell_thread_idx);
 
-    if (species_idx < NUM_SPECIES) {
-      scratch[threadIdx.x] =
-        cdots_pt[threadIdx.x] +
-        rYs[spec_index<OrderType>(species_idx, glb_cell_idx, ncells)];
+    if (lcl_cell_thread_idx < NUM_SPECIES) {
+      scratch[lcl_cell_idx][lcl_cell_thread_idx] =
+        cdots_pt[lcl_cell_idx][lcl_cell_thread_idx] +
+        rYs[spec_index<OrderType>(lcl_cell_thread_idx, glb_cell_idx, ncells)];
 
-      ydot_d[vec_index<OrderType>(species_idx, glb_cell_idx, ncells)] =
-        scratch[threadIdx.x];
+      ydot_d[vec_index<OrderType>(lcl_cell_thread_idx, glb_cell_idx, ncells)] =
+        scratch[lcl_cell_idx][lcl_cell_thread_idx];
 
-      scratch[threadIdx.x] *= ei_pt[threadIdx.x];
+      scratch[lcl_cell_idx][lcl_cell_thread_idx] *=
+        ei_pt[lcl_cell_idx][lcl_cell_thread_idx];
     }
 
     for (int stride = 32; stride > 0; stride /= 2) {
-      if (species_idx < stride) {
-          scratch[threadIdx.x] += scratch[threadIdx.x + stride];
+      if (lcl_cell_thread_idx < stride) {
+          scratch[lcl_cell_idx][lcl_cell_thread_idx] += scratch[lcl_cell_idx][lcl_cell_thread_idx + stride];
       }
     }
 
-    if (species_idx == 0) {
+    if (lcl_cell_thread_idx == 0) {
       ydot_d[vec_index<OrderType>(NUM_SPECIES, glb_cell_idx, ncells)] =
-        (rhoesrc_ext[glb_cell_idx] - scratch[lcl_cell_idx * 64]) * (rho_pt_inv / Cv_pt);
+        (rhoesrc_ext[glb_cell_idx] - scratch[lcl_cell_idx][0]) * (rho_pt_inv / Cv_pt);
     }
   }
-}
+}  
 
 #endif
