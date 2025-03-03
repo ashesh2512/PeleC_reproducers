@@ -55,7 +55,10 @@ cF_RHS_HIP(
   double* ydot_d,
   const double* rhoe_init,
   const double* rhoesrc_ext,
-  const double* rYs)
+  const double* rYs,
+  const double* ceoffs_CKUBMS,
+  const double* ceoffs_CKCVBS,
+  const double* ceoffs_CKUMS)
 {
   const int num_cells_per_block = 1;
   const int lcl_cell_idx = threadIdx.x / 64;

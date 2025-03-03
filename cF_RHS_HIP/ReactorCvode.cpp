@@ -76,14 +76,45 @@ int cF_RHS(const int ncells, const double dt_save, const int num_iters)
 
   printf("\nKernel about to be launched, data copied over to device.\n");
   fflush(stdout);
-             
-  for (int iter = 0; iter < num_iters; iter ++)
+
   {
-    // kernel call           
-    const int block_size = 64;
-    cF_RHS_HIP<Ordering>
-        <<<(ncells + block_size - 1) / block_size, block_size>>>(
-            ncells, dt_save, yvec_d, ydot_d, rhoe_init_d, rhoesrc_ext_d, rYsrc_ext_d);
+    double* mat_7_h = new double[7*NUM_SPECIES]; // allocate space for dummy mat
+    double* mat_6_h = new double[6*NUM_SPECIES]; // allocate space for dummy mat
+
+    // create random arrays
+    for (int i = 0; i < 7*NUM_SPECIES; i++) {
+      mat_7_h[i] = random_number(1e-15, 10.0);
+    }
+    for (int i = 0; i < 6*NUM_SPECIES; i++) {
+      mat_6_h[i] = random_number(1e-15, 10.0);
+    }
+
+    double* mat_7_d; 
+    double* mat_6_d;
+    HIP_ASSERT(hipMalloc(&mat_7_d, 7*NUM_SPECIES * sizeof(double))); // allocate device space for dummy mat
+    HIP_ASSERT(hipMalloc(&mat_6_d, 6*NUM_SPECIES * sizeof(double))); // allocate device space for dummy mat
+
+    HIP_ASSERT(hipMemcpy(mat_7_d, mat_7_h, 7*NUM_SPECIES * sizeof(double), hipMemcpyHostToDevice));
+    HIP_ASSERT(hipMemcpy(mat_6_d, mat_6_h, 6*NUM_SPECIES * sizeof(double), hipMemcpyHostToDevice));
+
+    const int num_cells_per_block = 4;
+    const int nthreads_per_block = 64 * num_cells_per_block;
+
+    dim3 block(nthreads_per_block);
+    dim3 grid( (ncells + num_cells_per_block - 1) / num_cells_per_block); // multiple cells assigned 1 block
+
+    for (int iter = 0; iter < num_iters; iter ++)
+    {
+      cF_RHS_HIP<Ordering><<<grid, block>>>(
+        ncells, dt_save, yvec_d, ydot_d, rhoe_init_d, rhoesrc_ext_d,
+        rYsrc_ext_d, mat_7_d, mat_6_d, mat_6_d);
+    }
+
+    HIP_ASSERT(hipFree(mat_7_d));
+    HIP_ASSERT(hipFree(mat_6_d));
+    
+    delete[] mat_7_h; 
+    delete[] mat_6_h;
   }
 
   hipError_t err = hipDeviceSynchronize();
@@ -102,7 +133,7 @@ int cF_RHS(const int ncells, const double dt_save, const int num_iters)
   HIP_ASSERT(hipFree(rhoe_init_d));
   HIP_ASSERT(hipFree(rhoesrc_ext_d));
   HIP_ASSERT(hipFree(rYsrc_ext_d));
-
+  
   delete[] yvec_h;
   delete[] ydot_h;
   delete[] rhoe_init_h;
