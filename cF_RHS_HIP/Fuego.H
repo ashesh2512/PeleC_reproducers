@@ -15,9 +15,15 @@ struct Fuego
   __host__ __device__
   __forceinline__
   static void
-  TY2Cv(const double T, const double Y[NUM_SPECIES], double& Cv)
+  TY2Cv(
+    const double T, 
+    const double Y[NUM_SPECIES], 
+    double scratch[64], 
+    const double ceoffs_CKCVBS[6*NUM_SPECIES], 
+    double& Cv, 
+    const int tidx)
   {
-    CKCVBS(T, Y, Cv);
+    CKCVBS(T, Y, Cv, scratch, ceoffs_CKCVBS, tidx);
   }
 
   __host__ __device__
@@ -26,18 +32,28 @@ struct Fuego
     const double /*R*/,
     const double T,
     const double Y[NUM_SPECIES],
-    double& Cv)
+    double scratch[64],
+    const double ceoffs_CKCVBS[6*NUM_SPECIES],
+    double& Cv,
+    const int tidx)
   {
-    TY2Cv(T, Y, Cv);
+    TY2Cv(T, Y, scratch, ceoffs_CKCVBS, Cv, tidx);
   }
 
   __host__ __device__
   __forceinline__
   static void
-  EY2T(const double E, const double Y[NUM_SPECIES], double& T)
+  EY2T(
+    const double E,
+    const double Y[NUM_SPECIES],
+    double scratch[64],
+    const double ceoffs_CKUBMS[7*NUM_SPECIES], 
+    const double ceoffs_CKCVBS[6*NUM_SPECIES],
+    double& T,
+    const int tidx)
   {
     int lierr = 0;
-    GET_T_GIVEN_EY(E, Y, T, lierr);
+    GET_T_GIVEN_EY(E, Y, scratch, ceoffs_CKUBMS, ceoffs_CKCVBS, T, lierr, tidx);
   }
 
   __host__ __device__
@@ -46,9 +62,13 @@ struct Fuego
     const double /*R*/,
     const double E,
     const double Y[NUM_SPECIES],
-    double& T)
+    double scratch[64],
+    const double ceoffs_CKUBMS[7*NUM_SPECIES], 
+    const double ceoffs_CKCVBS[6*NUM_SPECIES],
+    double& T,
+    const int tidx)
   {
-    EY2T(E, Y, T);
+    EY2T(E, Y, scratch, ceoffs_CKUBMS, ceoffs_CKCVBS, T, tidx);
   }
 
   __host__ __device__
