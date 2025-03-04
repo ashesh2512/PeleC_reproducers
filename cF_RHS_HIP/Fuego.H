@@ -53,9 +53,9 @@ struct Fuego
 
   __host__ __device__
   __forceinline__
-  static void T2Ei(const double T, double Ei[NUM_SPECIES], const int tidx)
+  static void T2Ei(const double T, double Ei[NUM_SPECIES], const double ceoffs_CKUMS[6*NUM_SPECIES], const int tidx)
   {
-    CKUMS(T, Ei, tidx);
+    CKUMS(T, Ei, ceoffs_CKUMS, tidx);
   }
 
   __host__ __device__
@@ -65,9 +65,10 @@ struct Fuego
     const double T,
     const double* /*Y[]*/,
     double Ei[NUM_SPECIES],
+    const double ceoffs_CKUMS[6*NUM_SPECIES],
     const int tidx)
   {
-    T2Ei(T, Ei, tidx);
+    T2Ei(T, Ei, ceoffs_CKUMS, tidx);
   }
 };
 

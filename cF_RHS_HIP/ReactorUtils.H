@@ -110,7 +110,7 @@ cF_RHS_HIP(
       rho_pt, temp_pt, massfrac[lcl_cell_idx], Cv_pt);
     }
     eos.RTY2Ei(
-      rho_pt, temp_pt, massfrac[lcl_cell_idx], ei_pt[lcl_cell_idx], lcl_cell_thread_idx);
+      rho_pt, temp_pt, massfrac[lcl_cell_idx], ei_pt[lcl_cell_idx], ceoffs_CKUMS, lcl_cell_thread_idx);
 
     if (lcl_cell_thread_idx < NUM_SPECIES) {
       scratch[lcl_cell_idx][lcl_cell_thread_idx] =

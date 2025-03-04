@@ -112,7 +112,7 @@ int cF_RHS(const int ncells, const double dt_save, const int num_iters)
 
     HIP_ASSERT(hipFree(mat_7_d));
     HIP_ASSERT(hipFree(mat_6_d));
-    
+
     delete[] mat_7_h; 
     delete[] mat_6_h;
   }
@@ -125,7 +125,7 @@ int cF_RHS(const int ncells, const double dt_save, const int num_iters)
   // copy to host memory
   HIP_ASSERT(hipMemcpy(ydot_h, ydot_d, ncells * (NUM_SPECIES+1) * sizeof(double), hipMemcpyDeviceToHost));
 
-  printf("\nKernel launched, completed, and data copied over fromt device. End of program.\n");
+  printf("\nKernel launched, completed, and data copied over from device. End of program.\n");
   fflush(stdout);
 
   HIP_ASSERT(hipFree(yvec_d));
