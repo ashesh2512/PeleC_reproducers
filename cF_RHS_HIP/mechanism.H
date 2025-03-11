@@ -344,6 +344,15 @@ speciesInternalEnergy(double* species, const double T, const double ceoffs_CKUMS
 
   if (tidx < NUM_SPECIES) {
 
+    const double a = ceoffs_CKUMS[threadIdx.x];
+    const double b = ceoffs_CKUMS[NUM_SPECIES + threadIdx.x];
+    const double c = ceoffs_CKUMS[2 * NUM_SPECIES + threadIdx.x];
+    const double d = ceoffs_CKUMS[3 * NUM_SPECIES + threadIdx.x];
+    const double e = ceoffs_CKUMS[4 * NUM_SPECIES + threadIdx.x];
+    const double f = ceoffs_CKUMS[5 * NUM_SPECIES + threadIdx.x];
+
+    species[threadIdx.x] = a - b * T + c * T2 - d * T3 + e * T4 + f * invT;
+
     // species[tidx] = ceoffs_CKUMS[tidx] - ceoffs_CKUMS[NUM_SPECIES + tidx] * T +
     //              ceoffs_CKUMS[2 * NUM_SPECIES + tidx] * T2 -
     //              ceoffs_CKUMS[3 * NUM_SPECIES + tidx] * T3 +
