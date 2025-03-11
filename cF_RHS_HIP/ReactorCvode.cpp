@@ -117,7 +117,7 @@ int main(int argc, char* argv[]) {
   // Set default values
   std::string arg1 = "131072";
   std::string arg2 = "1.0";
-  std::string arg3 = "10000";
+  std::string arg3 = "10";
 
   // Check if arguments were provided
   if (argc > 1) {
