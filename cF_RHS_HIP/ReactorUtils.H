@@ -103,12 +103,12 @@ cF_RHS_HIP(
     double Cv_pt = 0.0;
 
     struct Fuego eos;
-    eos.REY2T(
-      rho_pt, nrg_pt, massfrac[lcl_cell_idx], scratch[lcl_cell_idx],
-      ceoffs_CKUBMS, ceoffs_CKCVBS, temp_pt, lcl_cell_thread_idx);
-    eos.RTY2Cv(
-      rho_pt, temp_pt, massfrac[lcl_cell_idx], scratch[lcl_cell_idx],
-      ceoffs_CKCVBS, Cv_pt, lcl_cell_thread_idx);
+    // eos.REY2T(
+    //   rho_pt, nrg_pt, massfrac[lcl_cell_idx], scratch[lcl_cell_idx],
+    //   ceoffs_CKUBMS, ceoffs_CKCVBS, temp_pt, lcl_cell_thread_idx);
+    // eos.RTY2Cv(
+    //   rho_pt, temp_pt, massfrac[lcl_cell_idx], scratch[lcl_cell_idx],
+    //   ceoffs_CKCVBS, Cv_pt, lcl_cell_thread_idx);
     eos.RTY2Ei(
       rho_pt, temp_pt, massfrac[lcl_cell_idx], ei_pt[lcl_cell_idx], ceoffs_CKUMS, lcl_cell_thread_idx);
 
