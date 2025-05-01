@@ -58,7 +58,7 @@ cF_RHS_HIP(
   const double* rYs)
 {
   const int num_cells_per_block = 1;
-  const int lcl_cell_idx = threadIdx.x / 64;
+  const int lcl_cell_idx = 0; threadIdx.x / 64;
   const int glb_cell_idx = blockIdx.x * num_cells_per_block + lcl_cell_idx;
   const int lcl_cell_thread_idx = threadIdx.x % 64;
 
@@ -101,11 +101,11 @@ cF_RHS_HIP(
     double Cv_pt = 0.0;
     struct Fuego eos;
     if (lcl_cell_thread_idx == 0) {
-      // eos.REY2T(rho_pt, nrg_pt, &massfrac[lcl_cell_idx * 64], temp_pt);
-      // eos.RTY2Cv(rho_pt, temp_pt, &massfrac[lcl_cell_idx * 64], Cv_pt);
+      // eos.REY2T(rho_pt, nrg_pt, massfrac[lcl_cell_idx], temp_pt);
+      // eos.RTY2Cv(rho_pt, temp_pt, massfrac[lcl_cell_idx], Cv_pt);
     }
     
-    eos.RTY2Ei(rho_pt, temp_pt, &massfrac[lcl_cell_idx * 64], &ei_pt[lcl_cell_idx * 64], lcl_cell_thread_idx);
+    eos.RTY2Ei(rho_pt, temp_pt, massfrac[lcl_cell_idx], ei_pt[lcl_cell_idx], lcl_cell_thread_idx);
 
     if (lcl_cell_thread_idx < NUM_SPECIES) {
       scratch[lcl_cell_idx][lcl_cell_thread_idx] =
