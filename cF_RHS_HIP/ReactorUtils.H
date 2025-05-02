@@ -58,7 +58,7 @@ cF_RHS_HIP(
   const double* rYs)
 {
   const int num_cells_per_block = 1;
-  const int lcl_cell_idx = 0; threadIdx.x / 64;
+  const int lcl_cell_idx = threadIdx.x / 64;
   const int glb_cell_idx = blockIdx.x * num_cells_per_block + lcl_cell_idx;
   const int lcl_cell_thread_idx = threadIdx.x % 64;
 
