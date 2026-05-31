@@ -2041,14 +2041,9 @@ __host__ __device__ __forceinline__ void
 GET_T_GIVEN_EY(
   const double e, const double y[], double& t, int& ierr)
 {
-#ifdef CONVERGENCE
-  const int maxiter = 5000;
-  const double tol = 1.e-12;
-#else
-  // const int maxiter = 200;
   const int maxiter = 3; // because we are feeding in garbage
   const double tol = 1.e-6;
-#endif
+
   double tmin = 90;   // max lower bound for thermo def
   double tmax = 4000; // min upper bound for thermo def
   double e1, emin, emax, cv, t1, dt;
